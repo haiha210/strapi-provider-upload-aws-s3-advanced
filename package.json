@@ -54,6 +54,7 @@
   "scripts": {
     "test": "jest --no-cache",
     "build": "tsc",
-    "prepack": "tsc"
+    "prepack": "tsc",
+    "prepare": "yarn build"
   }
 }
