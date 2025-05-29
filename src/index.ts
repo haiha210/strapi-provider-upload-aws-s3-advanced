@@ -4,7 +4,7 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
-import { Stream } from "stream";
+import { Readable, Stream } from "stream";
 
 interface Config {
   accessKeyId?: string;
@@ -19,7 +19,7 @@ interface Config {
     acl: string;
   }> &
     Record<string, unknown>;
-  client?: any, // allows to pass in an instantiated S3 client into init. Useful for unit testing
+  client?: any; // allows to pass in an instantiated S3 client into init. Useful for unit testing
 }
 
 export interface File {
@@ -58,7 +58,7 @@ function join(...segments: string[]): string {
   let s = "";
   for (let i = 0; i < segments.length - 1; i++) {
     const l = segments[i];
-    s += l.endsWith("/") || l == "" ? l : l + "/";
+    s += l.endsWith("/") || l === "" ? l : l + "/";
   }
   s += segments[segments.length - 1];
   return s;
@@ -77,15 +77,15 @@ export function init({
   client,
   ...config
 }: Config & Record<string, unknown>) {
-  let S3: S3Client
-  if(!client) {
+  let S3: S3Client;
+  if (!client) {
     // instantiate fresh S3 client, this should be the default at runtime
     const credentials = (() => {
       if (accessKeyId && secretAccessKey) {
         return {
           credentials: {
-            accessKeyId: accessKeyId,
-            secretAccessKey: secretAccessKey,
+            accessKeyId,
+            secretAccessKey,
           },
         };
       }
@@ -98,7 +98,7 @@ export function init({
       region,
     });
   } else {
-    S3 = client
+    S3 = client;
   }
 
   const prefix = config.prefix ? normalizePrefix(config.prefix) : "";
@@ -116,7 +116,8 @@ export function init({
   /**
    * Uploads a buffered or streamed file to S3 using the previously configured client
    * @param file File object from strapi controller
-   * @param customParams action parameters, overridable from config, see https://github.com/strapi/strapi/tree/main/packages/providers/upload-aws-s3
+   * @param customParams action parameters, overridable from config,
+   * see https://github.com/strapi/strapi/tree/main/packages/providers/upload-aws-s3
    */
   const upload = async (
     file: File,
@@ -129,9 +130,11 @@ export function init({
     const uploadParams: PutObjectCommandInput = {
       Bucket: bucket,
       Key: objectPath,
-      Body: file.stream || Buffer.from(file.buffer, "binary"),
+      Body:
+        (file.stream as unknown as Readable) ||
+        Buffer.from(file.buffer, "binary"),
       ContentType: file.mime,
-      ...acl,
+      // ...acl,
       ...customParams,
     };
     try {
@@ -163,7 +166,8 @@ export function init({
     /**
      * Deletes an object from the configured bucket
      * @param file File object from strapi controller
-     * @param customParams action parameters, overridable from config, see https://github.com/strapi/strapi/tree/main/packages/providers/upload-aws-s3
+     * @param customParams action parameters, overridable from config,
+     * see https://github.com/strapi/strapi/tree/main/packages/providers/upload-aws-s3
      */
     async delete(file: File, customParams: Record<string, unknown> = {}) {
       const path = file.path ?? "";
